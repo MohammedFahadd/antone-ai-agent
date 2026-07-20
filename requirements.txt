@@ -1,0 +1,10 @@
+streamlit
+requests
+google-genai
+uvicorn
+fastapi
+pydantic
+psycopg2-binary==2.9.12
+PyJWT
+python-dotenv
+email-validator

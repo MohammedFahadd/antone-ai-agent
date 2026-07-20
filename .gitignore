@@ -1,0 +1,17 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Secrets and Environment Config
+.env
+*.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+.streamlit/

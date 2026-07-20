@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info:
+  title: Tenant Inc. - Nectar Integration Platform API
+  description: API-first storage inventory and facility tracking service simulator.
+  version: 1.0.0
+paths:
+  /api/v1/inventory/search:
+    get:
+      tags:
+        - Inventory
+      summary: Search Inventory
+      description: |-
+        REST Endpoint to fetch live, available storage unit inventory.
+        Returns clean JSON data adhering to RESTful best practices.
+      operationId: search_inventory_api_v1_inventory_search_get
+      parameters:
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Dimensions to filter by, e.g., '5x10'
+            title: Size
+          description: Dimensions to filter by, e.g., '5x10'
+        - name: facility
+          in: query
+          required: false
+          schema:
+            type: string
+            description: City or facility name keyword, e.g., 'San Diego'
+            title: Facility
+          description: City or facility name keyword, e.g., 'San Diego'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      required:
+        - loc
+        - msg
+        - type
+      type: object
+      title: ValidationError
