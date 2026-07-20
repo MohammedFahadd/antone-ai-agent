@@ -1,6 +1,6 @@
-# Antone AI - Tenant Inc Storage Assistant 
+# Antone AI - Storage Assistant 
 
-Antone is an AI-powered, real-time chat assistant custom-built for self-storage operations under Tenant Inc. It combines a high-performance backend telemetry system with a responsive user frontend, offering users the ability to query real-time vacancy catalogs, browse pricing structures, and handle multi-turn context-aware conversations seamlessly.
+ANTONE is an AI-powered, real-time chat assistant custom-built for self-storage operations. It combines a high-performance backend telemetry system with a responsive user frontend, offering users the ability to query real-time vacancy catalogs, browse pricing structures, and handle multi-turn context-aware conversations seamlessly. It is based on Tenant Inc chat assistant ALITA.
 
 ## 🚀 Architecture & Technical Highlights
 * **Persistent Conversational Memory:** Implements the modern `google-genai` SDK using `client.chats.create` workflows to handle stateful, multi-turn dialogue tracking natively.
