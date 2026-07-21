@@ -226,7 +226,8 @@ with col_chat:
                         db_context += "Authenticated User's Active Leases & Bookings:\n"
                         if user_bookings:
                             for b in user_bookings:
-                                db_context += f"- Booking ID #{b.get('booking_id', b.get('id'))}: Unit #{b['unit_id']}, Sizing Tier: {b['size']}, Rate: ${b['price_monthly']}/mo, Status: {b['status']}, Start Date: {b['start_date']}, End Date: {b.get('end_date')}\n"
+                                b_id = b.get('booking_id', b.get('id'))
+                                db_context += f"- Booking ID #{b_id}: Unit #{b['unit_id']}, Sizing Tier: {b['size']}, Rate: ${b['price_monthly']}/mo, Status: {b['status']}, Start Date: {b['start_date']}, End Date: {b.get('end_date')}\n"
                         else:
                             db_context += "- No active or past bookings found on record.\n"
                     
@@ -238,7 +239,8 @@ with col_chat:
                             for p in user_payments:
                                 p_id = p.get('payment_id', p.get('id'))
                                 p_date = p.get('payment_date', p.get('created_at'))
-                                db_context += f"- Payment ID #{p_id} tied to Booking #{p['booking_id']}: Amount ${p['amount']}, Status: {p['status']}, Logged Timestamp: {p_date}\n"
+                                p_bk_id = p.get('booking_id', p.get('id'))
+                                db_context += f"- Payment ID #{p_id} tied to Booking #{p_bk_id}: Amount ${p['amount']}, Status: {p['status']}, Logged Timestamp: {p_date}\n"
                         else:
                             db_context += "- No payment invoices or transaction statements recorded.\n"
                             
@@ -268,7 +270,7 @@ with col_chat:
                 elif "GOOGLE_API_KEY" in st.secrets:
                     api_key_str = st.secrets["GOOGLE_API_KEY"]
                 else:
-                    api_key_str = "Ab8RN6JHPK3WtX1kgZYSoqsnl_LfItkDxqsBOLhzUyI4gpXK2g"
+                    api_key_str = "AQ.Ab8RN6J8B0a9P0S6oRomWChkB1RC6DubnB-ZCLd7j5tYl2Xqsw"
 
                 client = genai.Client(api_key=api_key_str)
                 
@@ -289,7 +291,7 @@ with col_chat:
                     )
 
                 chat = client.chats.create(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.5-flash",
                     config=genai.types.GenerateContentConfig(
                         system_instruction=system_instruction,
                     ),
@@ -448,35 +450,49 @@ if st.session_state["access_token"] and col_dash:
                 ]
             
             for p in payments_list:
-                # Handle flexible ID and Timestamp key names from DB updates
+                # Dynamically resolve Payment and Booking IDs matching DB query response structures
                 payment_id = p.get('payment_id', p.get('id', 'N/A'))
+                booking_id = p.get('booking_id', p.get('id', 'N/A'))
                 payment_date = p.get('payment_date', p.get('created_at', 'N/A'))
                 amount_val = p.get('amount', 0.0)
                 
                 with st.container(border=True):
                     p_col1, p_col2 = st.columns([2.5, 1])
                     with p_col1:
-                        st.markdown(f"**Invoice #{payment_id}** (Booking `#{p.get('booking_id')}`)")
+                        st.markdown(f"**Invoice #{payment_id}** (Booking `#{booking_id}`)")
                         st.caption(f"💵 Amount: **${float(amount_val):.2f}** | Date: {payment_date}")
                     with p_col2:
                         if p.get('status') == "Paid":
                             st.success("Status: Paid ✅")
                         else:
                             st.warning("Status: Pending ⏳")
-                            if st.button("Pay Now 💳", key=f"pay_{payment_id}", width="stretch"):
-                                payload = {
-                                    "booking_id": p.get('booking_id'),
-                                    "payment_method_token": "pm_card_visa",
-                                    "card_brand": "Visa",
-                                    "card_last4": "4242"
-                                }
-                                try:
-                                    pay_exec = requests.post(f"{API_BASE_URL}/payments/checkout", json=payload, headers=HTTP_headers(), timeout=2)
-                                    if pay_exec.status_code == 200:
-                                        st.toast(f"Invoice #{payment_id} paid successfully!", icon="💳")
+                            
+                            # Interactive Popover Modal for Card Entry
+                            with st.popover("Pay Now 💳", width="stretch"):
+                                st.subheader("Credit Card Details")
+                                card_number = st.text_input("Card Number", placeholder="4242 •••• •••• 4242", key=f"num_{payment_id}")
+                                c_col1, c_col2 = st.columns(2)
+                                with c_col1:
+                                    exp_date = st.text_input("MM/YY", placeholder="12/28", key=f"exp_{payment_id}")
+                                with c_col2:
+                                    cvc = st.text_input("CVC", type="password", placeholder="123", key=f"cvc_{payment_id}")
+                                
+                                st.write("")
+                                if st.button("Confirm Payment ⚡", key=f"btn_pay_{payment_id}", width="stretch", type="primary"):
+                                    last4 = card_number[-4:] if len(card_number) >= 4 else "4242"
+                                    payload = {
+                                        "booking_id": booking_id,
+                                        "payment_method_token": "pm_card_visa",
+                                        "card_brand": "Visa",
+                                        "card_last4": last4
+                                    }
+                                    try:
+                                        pay_exec = requests.post(f"{API_BASE_URL}/payments/checkout", json=payload, headers=HTTP_headers(), timeout=2)
+                                        if pay_exec.status_code == 200:
+                                            st.toast(f"Invoice #{payment_id} paid with Visa *{last4}!", icon="💳")
+                                            st.rerun()
+                                        else:
+                                            st.error(pay_exec.json().get("detail", "Checkout failed."))
+                                    except Exception:
+                                        st.toast(f"[Demo Mode] Invoice #{payment_id} paid!", icon="💳")
                                         st.rerun()
-                                    else:
-                                        st.error(pay_exec.json().get("detail", "Checkout failed."))
-                                except Exception:
-                                    st.toast(f"[Demo Mode] Invoice #{payment_id} paid via tokenized Visa *4242!", icon="💳")
-                                    st.rerun()
