@@ -270,7 +270,7 @@ with col_chat:
                 elif "GOOGLE_API_KEY" in st.secrets:
                     api_key_str = st.secrets["GOOGLE_API_KEY"]
                 else:
-                    api_key_str = "AQ.Ab8RN6J8B0a9P0S6oRomWChkB1RC6DubnB-ZCLd7j5tYl2Xqsw"
+                    api_key_str = os.getenv("GEMINI_API_KEY", "")
 
                 client = genai.Client(api_key=api_key_str)
                 
