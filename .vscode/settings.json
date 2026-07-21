@@ -1,11 +1,9 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python",
-    "python.analysis.extraPaths": [
-        "${workspaceFolder}/venv/lib/python3.13/site-packages"
-    ],
-    "python.analysis.ignoredModules": [
-        "psycopg2",
-        "passlib",
-        "passlib.context"
-    ]
+  "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/venv/lib/python3.13/site-packages"
+  ],
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingModuleSource": "none"
+  }
 }

@@ -14,6 +14,37 @@ def get_db_connection():
         port=os.getenv("DB_PORT", "5432")
     )
 
+def init_db():
+    """
+    Initializes database tables automatically on startup.
+    Creates the payments table along with primary foreign key tables if they do not exist.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # SQL execution block creating the payments ledger table
+        create_payments_table_query = """
+        CREATE TABLE IF NOT EXISTS payments (
+            payment_id SERIAL PRIMARY KEY,
+            booking_id INT REFERENCES bookings(booking_id),
+            stripe_customer_id VARCHAR(255),
+            stripe_payment_method_id VARCHAR(255),
+            card_brand VARCHAR(50),
+            card_last4 VARCHAR(4),
+            amount DECIMAL(10, 2),
+            status VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        cur.execute(create_payments_table_query)
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Database schema synchronized: 'payments' table initialized.")
+    except Exception as e:
+        print(f"⚠️ Error initializing database tables: {e}")
+
 def check_unit_availability(size: str = None, facility_keyword: str = None) -> str:
     """
     Queries the database for live storage unit inventory. 
@@ -53,3 +84,6 @@ def check_unit_availability(size: str = None, facility_keyword: str = None) -> s
         return "Found the following matching available units:\n" + "\n".join(units_list)
     except Exception as e:
         return f"Database operational error: {str(e)}"
+
+if __name__ == "__main__":
+    init_db()
