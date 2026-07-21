@@ -291,7 +291,7 @@ with col_chat:
                     )
 
                 chat = client.chats.create(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.1-lite",
                     config=genai.types.GenerateContentConfig(
                         system_instruction=system_instruction,
                     ),
