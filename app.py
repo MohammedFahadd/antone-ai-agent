@@ -273,7 +273,7 @@ with col_chat:
                     api_key_str = os.getenv("GEMINI_API_KEY", "")
 
                 client = genai.Client(api_key=api_key_str)
-                
+
                 system_instruction = (
                     "You are Antone, an AI-powered real-time chat assistant for a self-storage operator company named Tenant Inc. "
                     "Be professional, clear, and helpful. Use the provided live inventory data and user profile metadata to accurately answer inquiries. "
@@ -291,7 +291,7 @@ with col_chat:
                     )
 
                 chat = client.chats.create(
-                    model="gemini-1.5-flash",
+                    model="gemini-2.5-flash",
                     config=genai.types.GenerateContentConfig(
                         system_instruction=system_instruction,
                     ),
