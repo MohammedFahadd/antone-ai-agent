@@ -89,7 +89,7 @@ with st.sidebar:
             login_password = st.text_input("Password", type="password", placeholder="••••••••", key="login_password")
             st.write("")
             
-            if st.button("Secure Login 🔓", use_container_width=True, type="primary"):
+            if st.button("Secure Login 🔓", width="stretch", type="primary"):
                 payload = {"email": login_email, "password": login_password}
                 try:
                     res = requests.post(f"{API_BASE_URL}/auth/login", json=payload, timeout=2)
@@ -119,7 +119,7 @@ with st.sidebar:
             reg_password = st.text_input("Password", type="password", placeholder="••••••••")
             st.write("")
             
-            if st.button("Create Account 📝", use_container_width=True, type="primary"):
+            if st.button("Create Account 📝", width="stretch", type="primary"):
                 payload = {"first_name": reg_first_name, "last_name": reg_last_name, "email": reg_email, "password": reg_password}
                 try:
                     res = requests.post(f"{API_BASE_URL}/auth/register", json=payload, timeout=2)
@@ -146,7 +146,7 @@ with st.sidebar:
             st.metric(label="Your Subleased Units (Demo)", value=2)
             
         st.write("---")
-        if st.button("Log Out Session 🚪", use_container_width=True):
+        if st.button("Log Out Session 🚪", width="stretch"):
             st.session_state["access_token"] = None
             st.session_state["customer_name"] = ""
             st.session_state["show_login_prompt"] = False
@@ -226,7 +226,7 @@ with col_chat:
                         db_context += "Authenticated User's Active Leases & Bookings:\n"
                         if user_bookings:
                             for b in user_bookings:
-                                db_context += f"- Booking ID #{b['booking_id']}: Unit #{b['unit_id']}, Sizing Tier: {b['size']}, Rate: ${b['price_monthly']}/mo, Status: {b['status']}, Start Date: {b['start_date']}, End Date: {b['end_date']}\n"
+                                db_context += f"- Booking ID #{b.get('booking_id', b.get('id'))}: Unit #{b['unit_id']}, Sizing Tier: {b['size']}, Rate: ${b['price_monthly']}/mo, Status: {b['status']}, Start Date: {b['start_date']}, End Date: {b.get('end_date')}\n"
                         else:
                             db_context += "- No active or past bookings found on record.\n"
                     
@@ -236,7 +236,9 @@ with col_chat:
                         db_context += "\nAuthenticated User's Invoice Statements & Payments Ledger:\n"
                         if user_payments:
                             for p in user_payments:
-                                db_context += f"- Payment ID #{p['payment_id']} tied to Booking #{p['booking_id']}: Amount ${p['amount']}, Status: {p['status']}, Logged Timestamp: {p['payment_date']}\n"
+                                p_id = p.get('payment_id', p.get('id'))
+                                p_date = p.get('payment_date', p.get('created_at'))
+                                db_context += f"- Payment ID #{p_id} tied to Booking #{p['booking_id']}: Amount ${p['amount']}, Status: {p['status']}, Logged Timestamp: {p_date}\n"
                         else:
                             db_context += "- No payment invoices or transaction statements recorded.\n"
                             
@@ -386,7 +388,7 @@ if st.session_state["access_token"] and col_dash:
                             st.caption(f"📐 Size Tier: **{u['size']}** | 💵 Rate: **${u['price_monthly']:.2f}/mo**")
                         with c_action:
                             st.write("")
-                            if st.button("Rent ⚡", key=f"rent_{u['unit_id']}", use_container_width=True):
+                            if st.button("Rent ⚡", key=f"rent_{u['unit_id']}", width="stretch"):
                                 payload = {"unit_id": u['unit_id'], "days_duration": 30}
                                 try:
                                     rent_res = requests.post(f"{API_BASE_URL}/bookings", json=payload, headers=HTTP_headers(), timeout=2)
@@ -403,13 +405,13 @@ if st.session_state["access_token"] and col_dash:
                 col_prev, col_page, col_next = st.columns([1, 2, 1])
                 
                 with col_prev:
-                    if st.button("◀ Previous", use_container_width=True, disabled=(current_page == 0)):
+                    if st.button("◀ Previous", width="stretch", disabled=(current_page == 0)):
                         st.session_state["catalog_page"] -= 1
                         st.rerun()
                 with col_page:
                     st.markdown(f"<p style='text-align: center; color: gray; margin-top: 6px;'>Page {current_page + 1} of {max_page_idx + 1}<br><small>({total_units} units total)</small></p>", unsafe_allow_html=True)
                 with col_next:
-                    if st.button("Next ▶", use_container_width=True, disabled=(current_page == max_page_idx)):
+                    if st.button("Next ▶", width="stretch", disabled=(current_page == max_page_idx)):
                         st.session_state["catalog_page"] += 1
                         st.rerun()
                 
@@ -419,7 +421,7 @@ if st.session_state["access_token"] and col_dash:
             try:
                 bk_res = requests.get(f"{API_BASE_URL}/bookings/me", headers=HTTP_headers(), timeout=2)
                 if bk_res.status_code == 200:
-                    st.dataframe(bk_res.json().get("data", []), use_container_width=True, hide_index=True)
+                    st.dataframe(bk_res.json().get("data", []), width="stretch", hide_index=True)
                 else:
                     raise Exception()
             except Exception:
@@ -427,7 +429,7 @@ if st.session_state["access_token"] and col_dash:
                     {"booking_id": 1042, "unit_id": "B102", "size": "10x10", "price_monthly": 120.0, "status": "active", "start_date": "2026-01-01"},
                     {"booking_id": 1089, "unit_id": "A005", "size": "5x5", "price_monthly": 45.0, "status": "active", "start_date": "2026-05-15"}
                 ]
-                st.dataframe(mock_bookings, use_container_width=True, hide_index=True)
+                st.dataframe(mock_bookings, width="stretch", hide_index=True)
                 
         with tab_pays:
             st.write("")
@@ -446,19 +448,24 @@ if st.session_state["access_token"] and col_dash:
                 ]
             
             for p in payments_list:
+                # Handle flexible ID and Timestamp key names from DB updates
+                payment_id = p.get('payment_id', p.get('id', 'N/A'))
+                payment_date = p.get('payment_date', p.get('created_at', 'N/A'))
+                amount_val = p.get('amount', 0.0)
+                
                 with st.container(border=True):
                     p_col1, p_col2 = st.columns([2.5, 1])
                     with p_col1:
-                        st.markdown(f"**Invoice #{p['payment_id']}** (Booking `#{p['booking_id']}`)")
-                        st.caption(f"💵 Amount: **${p['amount']:.2f}** | Date: {p['payment_date']}")
+                        st.markdown(f"**Invoice #{payment_id}** (Booking `#{p.get('booking_id')}`)")
+                        st.caption(f"💵 Amount: **${float(amount_val):.2f}** | Date: {payment_date}")
                     with p_col2:
-                        if p['status'] == "Paid":
+                        if p.get('status') == "Paid":
                             st.success("Status: Paid ✅")
                         else:
                             st.warning("Status: Pending ⏳")
-                            if st.button("Pay Now 💳", key=f"pay_{p['payment_id']}", use_container_width=True):
+                            if st.button("Pay Now 💳", key=f"pay_{payment_id}", width="stretch"):
                                 payload = {
-                                    "booking_id": p['booking_id'],
+                                    "booking_id": p.get('booking_id'),
                                     "payment_method_token": "pm_card_visa",
                                     "card_brand": "Visa",
                                     "card_last4": "4242"
@@ -466,10 +473,10 @@ if st.session_state["access_token"] and col_dash:
                                 try:
                                     pay_exec = requests.post(f"{API_BASE_URL}/payments/checkout", json=payload, headers=HTTP_headers(), timeout=2)
                                     if pay_exec.status_code == 200:
-                                        st.toast(f"Invoice #{p['payment_id']} paid successfully!", icon="💳")
+                                        st.toast(f"Invoice #{payment_id} paid successfully!", icon="💳")
                                         st.rerun()
                                     else:
                                         st.error(pay_exec.json().get("detail", "Checkout failed."))
                                 except Exception:
-                                    st.toast(f"[Demo Mode] Invoice #{p['payment_id']} paid via tokenized Visa *4242!", icon="💳")
+                                    st.toast(f"[Demo Mode] Invoice #{payment_id} paid via tokenized Visa *4242!", icon="💳")
                                     st.rerun()

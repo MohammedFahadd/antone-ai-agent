@@ -4,6 +4,7 @@
     "${workspaceFolder}/venv/lib/python3.13/site-packages"
   ],
   "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
     "reportMissingModuleSource": "none"
   }
 }

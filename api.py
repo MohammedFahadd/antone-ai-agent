@@ -47,7 +47,7 @@ class BookingCreate(BaseModel):
 # Pydantic models for payment processing
 class ProcessPaymentRequest(BaseModel):
     booking_id: int
-    payment_method_token: str  # Token generated via Stripe or tokenized gateway (e.g. "pm_card_visa")
+    payment_method_token: str = "pm_card_visa"  # Token generated via Stripe or gateway
     card_brand: str = "Visa"
     card_last4: str = "4242"
 
@@ -240,6 +240,7 @@ def get_customer_bookings(current_customer_id: int = Depends(get_current_custome
         results = [
             {
                 "booking_id": r[0],
+                "id": r[0],
                 "unit_id": r[1],
                 "size": r[2],
                 "price_monthly": float(r[3]),
@@ -310,11 +311,11 @@ def create_booking(
         # 5. Update unit status
         cur.execute("UPDATE units SET status = 'Rented' WHERE id = %s;", (booking_data.unit_id,))
         
-        # 6. Insert initial pending invoice
+        # 6. Insert initial pending invoice into payments table
         cur.execute(
-            """INSERT INTO payments (booking_id, amount, payment_date, status)
-               VALUES (%s, %s, %s, 'Pending');""",
-            (booking_id, price_monthly, datetime.datetime.now(datetime.timezone.utc))
+            """INSERT INTO payments (booking_id, customer_id, amount, payment_date, status)
+               VALUES (%s, %s, %s, %s, 'Pending');""",
+            (booking_id, current_customer_id, price_monthly, datetime.datetime.now(datetime.timezone.utc))
         )
         
         conn.commit()
@@ -369,9 +370,11 @@ def get_customer_payments(current_customer_id: int = Depends(get_current_custome
         results = [
             {
                 "payment_id": r[0],
+                "id": r[0],
                 "booking_id": r[1],
                 "amount": float(r[2]),
                 "payment_date": r[3].strftime("%Y-%m-%d %H:%M:%S") if r[3] else None,
+                "created_at": r[3].strftime("%Y-%m-%d %H:%M:%S") if r[3] else None,
                 "status": r[4]
             }
             for r in rows
@@ -398,7 +401,7 @@ def process_booking_payment(
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # 1. Verify booking ownership
+        # 1. Verify booking ownership and find associated invoice
         cur.execute(
             """SELECT b.id, p.id, p.amount, p.status 
                FROM bookings b
@@ -417,7 +420,7 @@ def process_booking_payment(
         booking_id, payment_id, amount, payment_status = record[0], record[1], float(record[2]), record[3]
 
         # 2. Tokenized payment execution wrapper
-        transaction_reference = f"txn_{os.urandom(8).hex()}"
+        transaction_reference = f"pi_mock_{os.urandom(8).hex()}"
         
         if not STRIPE_SECRET_KEY.startswith("sk_test_mock"):
             try:
@@ -435,12 +438,22 @@ def process_booking_payment(
                 conn.close()
                 raise HTTPException(status_code=400, detail=f"Payment Gateway Error: {str(se)}")
 
-        # 3. Mark invoice as paid in PostgreSQL
+        # 3. Mark invoice as paid in PostgreSQL with Stripe metadata
         cur.execute(
             """UPDATE payments 
-               SET status = 'Paid', payment_date = %s 
+               SET status = 'Paid', 
+                   payment_date = %s,
+                   stripe_payment_intent_id = %s,
+                   card_brand = %s,
+                   card_last4 = %s
                WHERE id = %s;""",
-            (datetime.datetime.now(datetime.timezone.utc), payment_id)
+            (
+                datetime.datetime.now(datetime.timezone.utc),
+                transaction_reference,
+                payment_data.card_brand,
+                payment_data.card_last4,
+                payment_id
+            )
         )
 
         conn.commit()
