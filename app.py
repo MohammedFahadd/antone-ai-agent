@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom injection to visually polish the chat input container positioning
+# Custom CSS injection for layout styling
 st.markdown(
     """
     <style>
@@ -25,7 +25,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Initialize persistent session states for auth tokens and messages
+# Initialize persistent session states
 if "access_token" not in st.session_state:
     st.session_state["access_token"] = None
 if "customer_name" not in st.session_state:
@@ -178,7 +178,7 @@ with col_chat:
     if prompt := st.chat_input("Ask Antone about unit availability..."):
         st.session_state["messages"].append({"role": "user", "content": prompt})
         
-        profile_flagged_keywords = ["my unit", "my booking", "my statement", "my bill", "my payment", "balance", "sublease", "invoice", "rent unit", "ledger", "details"]
+        profile_flagged_keywords = ["my unit", "my booking", "my statement", "my bill", "my payment", "balance", "sublease", "invoice", "rent unit", "ledger", "details", "pay"]
         requires_profile_context = any(word in prompt.lower() for word in profile_flagged_keywords)
         
         if requires_profile_context and not st.session_state["access_token"]:
@@ -255,11 +255,11 @@ with col_chat:
                         f"- Booking ID #1042: Unit #B102, Sizing Tier: 10x10, Rate: $120.00/mo, Status: active, Start Date: 2026-01-01, End Date: None\n"
                         f"- Booking ID #1089: Unit #A005, Sizing Tier: 5x5, Rate: $45.00/mo, Status: active, Start Date: 2026-05-15, End Date: None\n\n"
                         f"Authenticated User's Invoice Statements & Payments Ledger:\n"
-                        f"- Payment ID #9412 tied to Booking #1042: Amount $120.00, Status: paid, Logged Timestamp: 2026-07-01\n"
-                        f"- Payment ID #9550 tied to Booking #1089: Amount $45.00, Status: paid, Logged Timestamp: 2026-07-15\n"
+                        f"- Payment ID #9412 tied to Booking #1042: Amount $120.00, Status: Paid, Logged Timestamp: 2026-07-01\n"
+                        f"- Payment ID #9550 tied to Booking #1089: Amount $45.00, Status: Pending, Logged Timestamp: 2026-07-15\n"
                     )
 
-            # --- GEMINI AI GENERATION ENGINE WITH PERSISTENT MEMORY ---
+            # --- GEMINI AI GENERATION ENGINE ---
             try:
                 if "GEMINI_API_KEY" in st.secrets:
                     api_key_str = st.secrets["GEMINI_API_KEY"]
@@ -273,8 +273,8 @@ with col_chat:
                 system_instruction = (
                     "You are Antone, an AI-powered real-time chat assistant for a self-storage operator company named Tenant Inc. "
                     "Be professional, clear, and helpful. Use the provided live inventory data and user profile metadata to accurately answer inquiries. "
-                    "If the user asks about their active bookings or leases, use the authenticated user bookings context to describe their unit IDs, sizes, "
-                    "monthly rates, and status. If asked general storage questions, answer them knowledgeably using your training data."
+                    "If the user asks about their active bookings, leases, or pending payment statements, use the context to explain their unit IDs, sizes, "
+                    "monthly rates, and payment status. Remind them that they can execute payment directly in the Transaction Ledgers tab."
                 )
 
                 formatted_history = []
@@ -431,16 +431,45 @@ if st.session_state["access_token"] and col_dash:
                 
         with tab_pays:
             st.write("")
-            st.caption("Automated system statements invoice billing balances ledger tracker.")
+            st.caption("Automated PCI-compliant invoice payment portal.")
+            
             try:
                 pay_res = requests.get(f"{API_BASE_URL}/payments/me", headers=HTTP_headers(), timeout=2)
                 if pay_res.status_code == 200:
-                    st.dataframe(pay_res.json().get("data", []), use_container_width=True, hide_index=True)
+                    payments_list = pay_res.json().get("data", [])
                 else:
                     raise Exception()
             except Exception:
-                mock_payments = [
-                    {"payment_id": 9412, "booking_id": 1042, "amount": 120.0, "status": "paid", "payment_date": "2026-07-01"},
-                    {"payment_id": 9550, "booking_id": 1089, "amount": 45.0, "status": "paid", "payment_date": "2026-07-15"}
+                payments_list = [
+                    {"payment_id": 9412, "booking_id": 1042, "amount": 120.0, "status": "Paid", "payment_date": "2026-07-01"},
+                    {"payment_id": 9550, "booking_id": 1089, "amount": 45.0, "status": "Pending", "payment_date": "2026-07-15"}
                 ]
-                st.dataframe(mock_payments, use_container_width=True, hide_index=True)
+            
+            for p in payments_list:
+                with st.container(border=True):
+                    p_col1, p_col2 = st.columns([2.5, 1])
+                    with p_col1:
+                        st.markdown(f"**Invoice #{p['payment_id']}** (Booking `#{p['booking_id']}`)")
+                        st.caption(f"💵 Amount: **${p['amount']:.2f}** | Date: {p['payment_date']}")
+                    with p_col2:
+                        if p['status'] == "Paid":
+                            st.success("Status: Paid ✅")
+                        else:
+                            st.warning("Status: Pending ⏳")
+                            if st.button("Pay Now 💳", key=f"pay_{p['payment_id']}", use_container_width=True):
+                                payload = {
+                                    "booking_id": p['booking_id'],
+                                    "payment_method_token": "pm_card_visa",
+                                    "card_brand": "Visa",
+                                    "card_last4": "4242"
+                                }
+                                try:
+                                    pay_exec = requests.post(f"{API_BASE_URL}/payments/checkout", json=payload, headers=HTTP_headers(), timeout=2)
+                                    if pay_exec.status_code == 200:
+                                        st.toast(f"Invoice #{p['payment_id']} paid successfully!", icon="💳")
+                                        st.rerun()
+                                    else:
+                                        st.error(pay_exec.json().get("detail", "Checkout failed."))
+                                except Exception:
+                                    st.toast(f"[Demo Mode] Invoice #{p['payment_id']} paid via tokenized Visa *4242!", icon="💳")
+                                    st.rerun()
